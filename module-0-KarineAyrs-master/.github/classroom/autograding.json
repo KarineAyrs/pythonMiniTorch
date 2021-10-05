@@ -1,0 +1,14 @@
+{
+  "tests": [
+    {
+      "name": "Test 0.1",
+      "setup": "sudo -H pip3 install -qr requirements.txt",
+      "run": "python3 -m pytest -m task0_1",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 10,
+      "points": 40
+    }
+  ]
+}
