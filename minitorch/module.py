@@ -21,11 +21,33 @@ class Module:
 
     def train(self):
         "Set the mode of this module and all descendent modules to `train`."
-        raise NotImplementedError('Need to include this file from past assignment.')
+        # 0 - white, 1- gray
+        stack = [[self, 0]]
+
+        while len(stack) != 0:
+            curr_v = stack[-1]
+            if curr_v[1] == 0:
+                curr_v[1] = 1
+                for v in curr_v[0].__dict__["_modules"].values():
+                    stack.append([v, 0])
+            elif curr_v[1] == 1:
+                curr_v[0].training = True
+                stack.remove(curr_v)
 
     def eval(self):
         "Set the mode of this module and all descendent modules to `eval`."
-        raise NotImplementedError('Need to include this file from past assignment.')
+        # 0 - white, 1- gray
+        stack = [[self, 0]]
+
+        while len(stack) != 0:
+            curr_v = stack[-1]
+            if curr_v[1] == 0:
+                curr_v[1] = 1
+                for v in curr_v[0].__dict__["_modules"].values():
+                    stack.append([v, 0])
+            elif curr_v[1] == 1:
+                curr_v[0].training = False
+                stack.remove(curr_v)
 
     def named_parameters(self):
         """
@@ -35,11 +57,59 @@ class Module:
         Returns:
             list of pairs: Contains the name and :class:`Parameter` of each ancestor parameter.
         """
-        raise NotImplementedError('Need to include this file from past assignment.')
+
+        n_parameters = []
+        prefix = ''
+        # 0 - white, 1- gray
+        stack = [[self, 0, '']]
+
+        while len(stack) != 0:
+            curr_v = stack[-1]
+            if curr_v[1] == 0:
+                curr_v[1] = 1
+
+                if curr_v[2] != '':
+                    prefix += curr_v[2] + '.'
+
+                for k, v in curr_v[0].__dict__["_modules"].items():
+                    stack.append([v, 0, k])
+
+            elif curr_v[1] == 1:
+                for k, v in curr_v[0].__dict__["_parameters"].items():
+                    n_parameters.append([prefix + k, v])
+
+                prefix = prefix[:len(prefix) - len(curr_v[2]) - 1]
+                stack.remove(curr_v)
+
+        return n_parameters
 
     def parameters(self):
         "Enumerate over all the parameters of this module and its descendents."
-        raise NotImplementedError('Need to include this file from past assignment.')
+
+        pars = []
+        prefix = ''
+        # 0 - white, 1- gray
+        stack = [[self, 0, '']]
+
+        while len(stack) != 0:
+            curr_v = stack[-1]
+            if curr_v[1] == 0:
+                curr_v[1] = 1
+
+                if curr_v[2] != '':
+                    prefix += curr_v[2] + '.'
+
+                for k, v in curr_v[0].__dict__["_modules"].items():
+                    stack.append([v, 0, k])
+
+            elif curr_v[1] == 1:
+                for k, v in curr_v[0].__dict__["_parameters"].items():
+                    pars.append([prefix + k])
+
+                prefix = prefix[:len(prefix) - len(curr_v[2]) - 1]
+                stack.remove(curr_v)
+
+        return pars
 
     def add_parameter(self, k, v):
         """
