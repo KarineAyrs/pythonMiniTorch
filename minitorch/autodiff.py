@@ -1,3 +1,4 @@
+# from .scalar import central_difference
 variable_count = 1
 
 
@@ -190,8 +191,7 @@ class History:
         Returns:
             list of numbers : a derivative with respect to `inputs`
         """
-        # TODO: Implement for Task 1.4.
-        raise NotImplementedError('Need to implement for Task 1.4')
+        return self.last_fn.chain_rule(self.ctx, self.inputs, d_output)
 
 
 class FunctionBase:
@@ -273,11 +273,18 @@ class FunctionBase:
         """
         # Tip: Note when implementing this function that
         # cls.backward may return either a value or a tuple.
-        # TODO: Implement for Task 1.3.
-        raise NotImplementedError('Need to implement for Task 1.3')
+        outs = wrap_tuple(cls.backward(ctx, d_output))
+        io_zip = zip(inputs, outs)
+        res = []
+        for inp, ndout in io_zip:
+            if not is_constant(inp):
+                res.append((inp, ndout))
+        return res
 
+        # return [(inp, ndout) for inp, ndout in zip(inputs, wrap_tuple(cls.backward(ctx, d_output))) if
+        #         not is_constant(inp)]
 
-# Algorithms for backpropagation
+    # Algorithms for backpropagation
 
 
 def is_constant(val):
@@ -295,8 +302,26 @@ def topological_sort(variable):
         list of Variables : Non-constant Variables in topological order
                             starting from the right.
     """
-    # TODO: Implement for Task 1.4.
-    raise NotImplementedError('Need to implement for Task 1.4')
+
+    topological_list = []
+    stack = [[variable, 0]]
+    while len(stack) != 0:
+        curr_v = stack[-1]
+        if curr_v[1] == 0:
+            curr_v[1] = 1
+            if not curr_v[0].is_leaf():
+                for v, der in curr_v[0].history.backprop_step(0):
+                    stack.append([v, 0])
+        elif curr_v[1] == 1:
+            topological_list.append(curr_v[0])
+            stack.remove(curr_v)
+
+
+    res = []
+    for i in range(len(topological_list) - 1, -1, -1):
+        res.append(topological_list[i])
+
+    return res
 
 
 def backpropagate(variable, deriv):
@@ -312,5 +337,15 @@ def backpropagate(variable, deriv):
 
     No return. Should write to its results to the derivative values of each leaf through `accumulate_derivative`.
     """
-    # TODO: Implement for Task 1.4.
-    raise NotImplementedError('Need to implement for Task 1.4')
+    vars = topological_sort(variable)
+    var_derivs = dict({variable.unique_id: deriv})
+
+    for v in vars:
+        if v.is_leaf():
+            if v.unique_id in var_derivs:
+                v.accumulate_derivative(var_derivs[v.unique_id])
+        else:
+            if v.unique_id in var_derivs:
+                chain_var_derivs = v.history.backprop_step(var_derivs[v.unique_id])
+                for chain_var, chain_der in chain_var_derivs:
+                    var_derivs.update({chain_var.unique_id: chain_der})

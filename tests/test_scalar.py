@@ -2,7 +2,7 @@ from minitorch import central_difference, operators, derivative_check, Scalar
 import pytest
 import minitorch
 from hypothesis import given
-from .strategies import small_scalars, small_floats, assert_close
+from tests.strategies import small_scalars, small_floats, assert_close
 from minitorch import MathTestVariable
 
 
