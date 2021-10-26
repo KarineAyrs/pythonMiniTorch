@@ -275,16 +275,9 @@ class FunctionBase:
         """
         # Tip: Note when implementing this function that
         # cls.backward may return either a value or a tuple.
-        outs = wrap_tuple(cls.backward(ctx, d_output))
-        io_zip = zip(inputs, outs)
-        res = []
-        for inp, ndout in io_zip:
-            if not is_constant(inp):
-                res.append((inp, ndout))
-        return res
 
-        # return [(inp, ndout) for inp, ndout in zip(inputs, wrap_tuple(cls.backward(ctx, d_output))) if
-        #         not is_constant(inp)]
+        return [(inp, ndout) for inp, ndout in zip(inputs, wrap_tuple(cls.backward(ctx, d_output))) if
+                not is_constant(inp)]
 
     # Algorithms for backpropagation
 
@@ -304,34 +297,21 @@ def topological_sort(variable):
         list of Variables : Non-constant Variables in topological order
                             starting from the right.
     """
-
-    queue = [variable]
+    vars = [variable]
+    d = dict({variable.unique_id: variable})
     res = []
-    while queue:
-        curr_var = queue.pop(0)
-        if not is_constant(curr_var) and curr_var.history.inputs is not None:
-            for v in curr_var.history.inputs:
-                if not is_constant(v):
-                    queue.append([v, 0])
 
-    #
-    # if variable.name == 'Variable2030':
-    #     print('')
-    # res = []
-    # stack = [[variable, 0]]
-    # while len(stack) != 0:
-    #     curr_var = stack[-1]
-    #     if curr_var[1] == 0:
-    #         curr_var[1] = 1
-    #         if not is_constant(curr_var[0]) and curr_var[0].history.inputs is not None:
-    #             for v in curr_var[0].history.inputs:
-    #                 if not is_constant(v):
-    #                     stack.append([v, 0])
-    #     elif curr_var[1] == 1:
-    #         if curr_var[0] not in res:
-    #             res.append(curr_var[0])
-    #         stack.__delitem__(-1)
-    # return [res[i] for i in range(len(res) - 1, -1, -1)]
+    while vars:
+        v = vars[0]
+        res.append(v)
+        if not v.is_leaf():
+            for el in v.history.inputs:
+                if not is_constant(el) and el.unique_id not in d.keys():
+                    vars.append(el)
+                    d.update({el.unique_id: el})
+        vars.remove(v)
+
+    return res
 
 
 def backpropagate(variable, deriv):
@@ -348,53 +328,27 @@ def backpropagate(variable, deriv):
     No return. Should write to its results to the derivative values of each leaf through `accumulate_derivative`.
     """
 
-    # queue = [[variable, deriv]]
-    # d = defaultdict()
-    # d[variable] = deriv
-    #
-    # def get_queue_index(name):
-    #     for i, pair in enumerate(queue):
-    #         var = pair[0]
-    #         if var.name == name:
-    #             return i
-    #     return None
-    #
-    # while queue:
-    #     pair = queue.pop(0)
-    #     var, deriv = pair[0], pair[1]
-    #     if var.is_leaf():
-    #         var.accumulate_derivative(deriv)
-    #     else:
-    #         vars_with_derivs = var.history.backprop_step(deriv)
-    #         for chain_var, chain_der in vars_with_derivs:
-    #             new_var, new_deriv = chain_var, chain_der
-    #             idx = get_queue_index(new_var.name)
-    #             if idx is not None:
-    #                 queue[idx][1] += new_deriv
-    #             else:
-    #                 queue.append([new_var, new_deriv])
     def accum_deriv(old_der, der_to_add):
-        if not isinstance(old_der, float):
-            old_der.data += der_to_add if isinstance(der_to_add, float) else der_to_add.data
+        if not (isinstance(old_der, float) or isinstance(old_der, int)):
+            old_der.data += der_to_add if (
+                    isinstance(der_to_add, float) or isinstance(der_to_add, int)) else der_to_add.data
         else:
-            old_der += der_to_add if isinstance(der_to_add, float) else der_to_add.data
-        return old_der
+            old_der += der_to_add if (isinstance(der_to_add, float) or isinstance(der_to_add, int)) else der_to_add.data
+        return old_der if (isinstance(old_der, float) or isinstance(old_der, int)) else old_der.data
 
-    #
-    # vars = topological_sort(variable)
-    vars = [[variable, deriv]]
-    var_derivs = dict({variable.unique_id: deriv})
+    vars = topological_sort(variable)
+    var_derivs = {variable.unique_id: deriv}
 
     while vars:
-        v, d = vars.pop(0)
+        v = vars.pop(0)
+        d = var_derivs[v.unique_id]
         if v.is_leaf():
-            v.accumulate_derivative(var_derivs[v.unique_id])
+            v.accumulate_derivative(d.data if not (isinstance(d, float) or isinstance(d, int)) else d)
+            print(var_derivs[v.unique_id])
         else:
-            chain_var_derivs = v.history.backprop_step(var_derivs[v.unique_id])
-            for chain_var, chain_der in chain_var_derivs:
-                if not is_constant(chain_var):
-                    if chain_var.unique_id in var_derivs.keys():
-                        var_derivs.update({chain_var.unique_id: accum_deriv(var_derivs[chain_var.unique_id], chain_der)})
-                    else:
-                        var_derivs.update({chain_var.unique_id: chain_der})
-                        vars.append([chain_var, chain_der])
+            for chain_var, chain_der in v.history.backprop_step(var_derivs[v.unique_id]):
+                if chain_var.unique_id in var_derivs.keys():
+                    var_derivs.update(
+                        {chain_var.unique_id: accum_deriv(var_derivs[chain_var.unique_id], chain_der)})
+                else:
+                    var_derivs.update({chain_var.unique_id: chain_der})

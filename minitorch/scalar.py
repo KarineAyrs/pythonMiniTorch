@@ -22,18 +22,27 @@ def central_difference(f, *vals, arg=0, epsilon=1e-6):
     Returns:
         float : An approximation of :math:`f'_i(x_0, \ldots, x_{n-1})`
     """
+    x_plus_eps, x_min_eps = list(vals), list(vals)
+    x_plus_eps[arg] += epsilon
+    x_min_eps[arg] -= epsilon
+    diff = (f(*x_plus_eps) - f(*x_min_eps))
+    res = Scalar(diff.data / (2 * epsilon) if isinstance(diff, Scalar) else diff / (2 * epsilon))
+    return res
 
-    x_delta = []
 
-    for i in range(len(vals)):
-        if i == arg:
-            x_delta.append(vals[i] + epsilon)
-        else:
-            x_delta.append(vals[i])
-    diff = Scalar(f(*x_delta) - f(*vals)) if not isinstance(f(*x_delta) - f(*vals), Scalar) else f(*x_delta) - f(*vals)
-    result = Scalar(diff.data/epsilon)
-    result.data = float(result.data)            # round(result.data,2)
-    return result
+# diff = Scalar(f(*x_plus_eps) - f(*x_min_eps)) if not isinstance(f(*x_delta) - f(*vals), Scalar) else f(*x_delta) - f(*vals)
+# return (f(*x_plus_eps) - f(*x_min_eps)) / (2 * epsilon)
+# x_delta = []
+#
+# for i in range(len(vals)):
+#     if i == arg:
+#         x_delta.append(vals[i] + epsilon)
+#     else:
+#         x_delta.append(vals[i])
+# diff = Scalar(f(*x_delta) - f(*vals)) if not isinstance(f(*x_delta) - f(*vals), Scalar) else f(*x_delta) - f(*vals)
+# result = Scalar(diff.data/epsilon)
+# result.data = float(result.data)            # round(result.data,2)
+# return result
 
 
 # ## Task 1.2 and 1.4
@@ -160,12 +169,11 @@ class Add(ScalarFunction):
 
     @staticmethod
     def forward(ctx, a, b):
-        ctx.save_for_backward(a,b)
+        ctx.save_for_backward(a, b)
         return a + b
 
     @staticmethod
     def backward(ctx, d_output):
-
         # a_prime = central_difference(operators.add, ctx.saved_values[0], 0)
         # b_prime = central_difference(operators.add,ctx.saved_values[1], 1)
         return d_output, d_output
@@ -199,7 +207,7 @@ class Mul(ScalarFunction):
     @staticmethod
     def backward(ctx, d_output):
         a, b = ctx.saved_values
-        return a * d_output, b * d_output
+        return b * d_output, a * d_output
 
 
 class Inv(ScalarFunction):
@@ -310,7 +318,7 @@ Derivative check at arguments f(%s) and received derivative f'=%f for argument %
 but was expecting derivative f'=%f from central difference."""
     for i, x in enumerate(scalars):
         check = central_difference(f, *vals, arg=i)
-        print(str([x.data for x in scalars]), x.derivative, i, check)
+        print(str([x.data for x in scalars]), x.derivative, i, check, f.__name__)
         np.testing.assert_allclose(
             x.derivative,
             check.data,
