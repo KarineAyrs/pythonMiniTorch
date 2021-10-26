@@ -32,6 +32,7 @@ def central_difference(f, *vals, arg=0, epsilon=1e-6):
             x_delta.append(vals[i])
     diff = Scalar(f(*x_delta) - f(*vals)) if not isinstance(f(*x_delta) - f(*vals), Scalar) else f(*x_delta) - f(*vals)
     result = Scalar(diff.data/epsilon)
+    result.data = float(result.data)            # round(result.data,2)
     return result
 
 

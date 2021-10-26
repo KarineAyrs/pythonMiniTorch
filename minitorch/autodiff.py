@@ -1,4 +1,6 @@
-# from .scalar import central_difference
+# from .scalar import Scalar
+from collections import defaultdict
+
 variable_count = 1
 
 
@@ -303,25 +305,33 @@ def topological_sort(variable):
                             starting from the right.
     """
 
-    topological_list = []
-    stack = [[variable, 0]]
-    while len(stack) != 0:
-        curr_v = stack[-1]
-        if curr_v[1] == 0:
-            curr_v[1] = 1
-            if not curr_v[0].is_leaf():
-                for v, der in curr_v[0].history.backprop_step(0):
-                    stack.append([v, 0])
-        elif curr_v[1] == 1:
-            topological_list.append(curr_v[0])
-            stack.remove(curr_v)
-
-
+    queue = [variable]
     res = []
-    for i in range(len(topological_list) - 1, -1, -1):
-        res.append(topological_list[i])
+    while queue:
+        curr_var = queue.pop(0)
+        if not is_constant(curr_var) and curr_var.history.inputs is not None:
+            for v in curr_var.history.inputs:
+                if not is_constant(v):
+                    queue.append([v, 0])
 
-    return res
+    #
+    # if variable.name == 'Variable2030':
+    #     print('')
+    # res = []
+    # stack = [[variable, 0]]
+    # while len(stack) != 0:
+    #     curr_var = stack[-1]
+    #     if curr_var[1] == 0:
+    #         curr_var[1] = 1
+    #         if not is_constant(curr_var[0]) and curr_var[0].history.inputs is not None:
+    #             for v in curr_var[0].history.inputs:
+    #                 if not is_constant(v):
+    #                     stack.append([v, 0])
+    #     elif curr_var[1] == 1:
+    #         if curr_var[0] not in res:
+    #             res.append(curr_var[0])
+    #         stack.__delitem__(-1)
+    # return [res[i] for i in range(len(res) - 1, -1, -1)]
 
 
 def backpropagate(variable, deriv):
@@ -337,15 +347,54 @@ def backpropagate(variable, deriv):
 
     No return. Should write to its results to the derivative values of each leaf through `accumulate_derivative`.
     """
-    vars = topological_sort(variable)
+
+    # queue = [[variable, deriv]]
+    # d = defaultdict()
+    # d[variable] = deriv
+    #
+    # def get_queue_index(name):
+    #     for i, pair in enumerate(queue):
+    #         var = pair[0]
+    #         if var.name == name:
+    #             return i
+    #     return None
+    #
+    # while queue:
+    #     pair = queue.pop(0)
+    #     var, deriv = pair[0], pair[1]
+    #     if var.is_leaf():
+    #         var.accumulate_derivative(deriv)
+    #     else:
+    #         vars_with_derivs = var.history.backprop_step(deriv)
+    #         for chain_var, chain_der in vars_with_derivs:
+    #             new_var, new_deriv = chain_var, chain_der
+    #             idx = get_queue_index(new_var.name)
+    #             if idx is not None:
+    #                 queue[idx][1] += new_deriv
+    #             else:
+    #                 queue.append([new_var, new_deriv])
+    def accum_deriv(old_der, der_to_add):
+        if not isinstance(old_der, float):
+            old_der.data += der_to_add if isinstance(der_to_add, float) else der_to_add.data
+        else:
+            old_der += der_to_add if isinstance(der_to_add, float) else der_to_add.data
+        return old_der
+
+    #
+    # vars = topological_sort(variable)
+    vars = [[variable, deriv]]
     var_derivs = dict({variable.unique_id: deriv})
 
-    for v in vars:
+    while vars:
+        v, d = vars.pop(0)
         if v.is_leaf():
-            if v.unique_id in var_derivs:
-                v.accumulate_derivative(var_derivs[v.unique_id])
+            v.accumulate_derivative(var_derivs[v.unique_id])
         else:
-            if v.unique_id in var_derivs:
-                chain_var_derivs = v.history.backprop_step(var_derivs[v.unique_id])
-                for chain_var, chain_der in chain_var_derivs:
-                    var_derivs.update({chain_var.unique_id: chain_der})
+            chain_var_derivs = v.history.backprop_step(var_derivs[v.unique_id])
+            for chain_var, chain_der in chain_var_derivs:
+                if not is_constant(chain_var):
+                    if chain_var.unique_id in var_derivs.keys():
+                        var_derivs.update({chain_var.unique_id: accum_deriv(var_derivs[chain_var.unique_id], chain_der)})
+                    else:
+                        var_derivs.update({chain_var.unique_id: chain_der})
+                        vars.append([chain_var, chain_der])
