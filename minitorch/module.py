@@ -57,59 +57,21 @@ class Module:
         Returns:
             list of pairs: Contains the name and :class:`Parameter` of each ancestor parameter.
         """
+        n_parameters = dict()
 
-        n_parameters = []
-        prefix = ''
-        # 0 - white, 1- gray
-        stack = [[self, 0, '']]
+        for k, v in self._parameters.items():
+            n_parameters[k] = v
 
-        while len(stack) != 0:
-            curr_v = stack[-1]
-            if curr_v[1] == 0:
-                curr_v[1] = 1
-
-                if curr_v[2] != '':
-                    prefix += curr_v[2] + '.'
-
-                for k, v in curr_v[0].__dict__["_modules"].items():
-                    stack.append([v, 0, k])
-
-            elif curr_v[1] == 1:
-                for k, v in curr_v[0].__dict__["_parameters"].items():
-                    n_parameters.append([prefix + k, v])
-
-                prefix = prefix[:len(prefix) - len(curr_v[2]) - 1]
-                stack.remove(curr_v)
-
+        for name, module in self._modules.items():
+            child_parameters = module.named_parameters()
+            for key, value in child_parameters.items():
+                new_key = f"{name}.{key}"
+                n_parameters[new_key] = value
         return n_parameters
 
     def parameters(self):
         "Enumerate over all the parameters of this module and its descendents."
-
-        pars = []
-        prefix = ''
-        # 0 - white, 1- gray
-        stack = [[self, 0, '']]
-
-        while len(stack) != 0:
-            curr_v = stack[-1]
-            if curr_v[1] == 0:
-                curr_v[1] = 1
-
-                if curr_v[2] != '':
-                    prefix += curr_v[2] + '.'
-
-                for k, v in curr_v[0].__dict__["_modules"].items():
-                    stack.append([v, 0, k])
-
-            elif curr_v[1] == 1:
-                for k, v in curr_v[0].__dict__["_parameters"].items():
-                    pars.append([prefix + k])
-
-                prefix = prefix[:len(prefix) - len(curr_v[2]) - 1]
-                stack.remove(curr_v)
-
-        return pars
+        return self.named_parameters().values()
 
     def add_parameter(self, k, v):
         """

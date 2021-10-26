@@ -63,7 +63,6 @@ def test_one_args(fn, t1):
 @pytest.mark.parametrize("fn", two_arg)
 def test_two_args(fn, t1, t2):
     name, base_fn, scalar_fn = fn
-    print(fn)
     assert_close(scalar_fn(t1, t2).data, base_fn(t1.data, t2.data))
 
 
@@ -77,7 +76,6 @@ def test_two_args(fn, t1, t2):
 @pytest.mark.parametrize("fn", one_arg)
 def test_one_derivative(fn, t1):
     name, _, scalar_fn = fn
-    # if name == 'cube':
     derivative_check(scalar_fn, t1)
 
 
